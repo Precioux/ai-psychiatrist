@@ -1,40 +1,33 @@
-import requests
-import json
+from ollama import Client
 
-class MetaReviewer:
-    def __init__(self, model="llama3"):
-        self.model = model
+class MetaReviewerAgent:
+    def __init__(self):
+        self.client = Client(host="http://localhost:11434")
 
-    def review(self, interview_text: str, qualitative_assessment: str, quantitative_assessment: str):
+    def review(self, interview: str, qualitative: str, quantitative: str) -> str:
         prompt = f"""
-You are an expert psychiatrist AI assistant. Given the interview transcript, the qualitative assessment, and the quantitative PHQ-8 assessment, synthesize all information to produce a final diagnostic suggestion focusing on depression.
+You are an AI meta-reviewer psychiatrist.
 
-Interview transcript:
-{interview_text}
+Please integrate the information below and produce a final diagnostic suggestion.
 
-Qualitative assessment:
-{qualitative_assessment}
+<interview>
+{interview}
+</interview>
 
-Quantitative assessment:
-{quantitative_assessment}
+<qualitative>
+{qualitative}
+</qualitative>
 
-Please provide a clear, concise, and structured diagnostic summary, mentioning confidence levels and any recommendations for further clinical evaluation.
+<quantitative>
+{quantitative}
+</quantitative>
+
+Provide a concise diagnostic recommendation in <diagnosis> tags, plus any additional considerations in <considerations> tags.
 """
-        response = requests.post(
-            "http://localhost:11434/api/generate",
-            json={
-                "model": self.model,
-                "prompt": prompt.strip()
-            },
-            stream=True
+        response = self.client.chat(
+            model="llama3",
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
         )
-
-        full_response = ""
-        for line in response.iter_lines():
-            if line:
-                chunk = line.decode("utf-8")
-                data = json.loads(chunk)
-                piece = data.get("response", "")
-                full_response += piece
-
-        return full_response
+        return response['message']['content']

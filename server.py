@@ -3,49 +3,39 @@ from pydantic import BaseModel
 from agents.interview_simulator import InterviewSimulator
 from agents.qualitative_assessor import QualitativeAssessor
 from agents.quantitative_assessor import QuantitativeAssessor
-from agents.meta_reviewer import MetaReviewer  # new import
+from agents.meta_reviewer import MetaReviewerAgent
 
 app = FastAPI()
 
 interview_agent = InterviewSimulator()
 qualitative_assessor = QualitativeAssessor()
 quantitative_assessor = QuantitativeAssessor()
-meta_reviewer = MetaReviewer()  # new instance
+meta_reviewer = MetaReviewerAgent()
 
 class InterviewRequest(BaseModel):
     topic: str
 
-class AssessRequest(BaseModel):
-    interview: str
+@app.post("/full_pipeline")
+def run_full_pipeline(request: InterviewRequest):
+    # 1. Simulate interview
+    conversation = interview_agent.simulate(request.topic)
 
-class QuantitativeRequest(BaseModel):
-    interview: str
+    # 2. Run qualitative assessment
+    qualitative_result = qualitative_assessor.assess(conversation)
 
-class MetaReviewRequest(BaseModel):  # new request model
-    interview: str
-    qualitative_assessment: str
-    quantitative_assessment: str
+    # 3. Run quantitative assessment
+    quantitative_result = quantitative_assessor.assess(conversation)
 
-@app.post("/simulate")
-def simulate_interview(request: InterviewRequest):
-    result = interview_agent.simulate(request.topic)
-    return {"conversation": result}
-
-@app.post("/assess")
-def qualitative_assessment(request: AssessRequest):
-    result = qualitative_assessor.assess(request.interview)
-    return {"assessment": result}
-
-@app.post("/quantify")
-def quantitative_assessment(request: QuantitativeRequest):
-    result = quantitative_assessor.assess(request.interview)
-    return {"quantitative_assessment": result}
-
-@app.post("/meta_review")  # new endpoint
-def meta_review(request: MetaReviewRequest):
-    result = meta_reviewer.review(
-        request.interview,
-        request.qualitative_assessment,
-        request.quantitative_assessment
+    # 4. Run meta-review
+    final_review = meta_reviewer.review(
+        interview=conversation,
+        qualitative=qualitative_result,
+        quantitative=quantitative_result
     )
-    return {"diagnostic_suggestion": result}
+
+    return {
+        "conversation": conversation,
+        "qualitative": qualitative_result,
+        "quantitative": quantitative_result,
+        "meta_review": final_review
+    }
