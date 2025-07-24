@@ -1,31 +1,33 @@
 import os
 import pandas as pd
 
+def save_transcript_texts(transcript_folder: str, output_folder: str):
+    os.makedirs(output_folder, exist_ok=True)
 
-def extract_prompt_examples(transcript_folder: str, max_files=None):
-    examples = []
-    files = [f for f in os.listdir(transcript_folder) if f.endswith("_Transcript.csv")]
+    for filename in os.listdir(transcript_folder):
+        if filename.endswith("_Transcript.csv"):
+            file_path = os.path.join(transcript_folder, filename)
+            try:
+                df = pd.read_csv(file_path)
+                lines = df["Text"].dropna().tolist()
 
-    if max_files:
-        files = files[:max_files]
+                full_text = "\n".join(line.strip() for line in lines if line.strip())
 
-    for filename in files:
-        file_path = os.path.join(transcript_folder, filename)
-        try:
-            df = pd.read_csv(file_path, sep="\t")
-            lines = []
+                base_name = filename.replace("_Transcript.csv", "")
+                out_file_path = os.path.join(output_folder, f"{base_name}.txt")
 
-            for _, row in df.iterrows():
-                speaker = row.get("speaker", "").strip()
-                text = row.get("value", "").strip()
-                if speaker and text:
-                    if speaker.lower() == "ellie":
-                        speaker = "Psychiatrist"
-                    lines.append(f"{speaker}: {text}")
+                with open(out_file_path, "w", encoding="utf-8") as f:
+                    f.write(full_text)
 
-            full_dialogue = "\n".join(lines)
-            examples.append(full_dialogue)
-        except Exception as e:
-            print(f"Error processing {filename}: {e}")
+                print(f"[✓] Saved {out_file_path}")
 
-    return examples
+            except Exception as e:
+                print(f"[!] Error processing {filename}: {e}")
+
+if __name__ == "__main__":
+    transcript_folder = "./transcripts"
+    output_folder = "./prompt_texts"
+
+    print(f"Processing transcripts from: {transcript_folder}")
+    save_transcript_texts(transcript_folder, output_folder)
+    print("All transcripts processed.")
